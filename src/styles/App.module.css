@@ -1,0 +1,9 @@
+.box{
+    width: 600px;
+    height: 600px;
+    background-color: aliceblue;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    border-radius: 10px;
+}
