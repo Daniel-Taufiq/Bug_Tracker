@@ -3,16 +3,17 @@ const bodyParser = require('body-parser')
 const mysql = require('mysql');
 const express = require('express');
 const bcrypt = require('bcrypt');
+const cors = require('cors');
 const app = express();
 const password = process.env.PW;
 const saltRounds = 10;
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 
 
 app.use(bodyParser.urlencoded({
     extended: true
   }));
-
+app.use(cors());
 app.use(express.json());
 
 // -------------------routes --------------------------
