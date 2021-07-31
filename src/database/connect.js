@@ -7,7 +7,7 @@ const app = express();
 const password = process.env.PW;
 const saltRounds = 10;
 const port = process.env.PORT || 3000;
-let hash = '';
+
 
 app.use(bodyParser.urlencoded({
     extended: true
@@ -21,15 +21,23 @@ app.post('/signup', function(req, res) {
     let username = req.body.username;
     let password = generatePasswordHash(req.body.password);
 
-
-    let insert_query = 'INSERT INTO users (username, password) VALUES ("' + username + '", "' + password + '")';
-
-    connection.query(insert_query, function(err, result) {
+    // check if username already exists
+    connection.query('SELECT * FROM users WHERE username = ?', [username], function(err, result) {
         if (err) {
-            console.error('Error inserting into table', err);
-            return;
+            console.log(err);
+            res.status(500).send(err);
+        } else if (result.length > 0) {
+            res.status(400).send('Username already exists');
+        } else {
+            connection.query('INSERT INTO users (username, password) VALUES (?, ?)', [username, password], function(err, result) {
+                if (err) {
+                    console.log(err);
+                    res.status(500).send(err);
+                } else {
+                    res.status(200).send('User created');
+                }
+            });
         }
-        res.send('Success');
     });
 });
 
@@ -48,7 +56,7 @@ app.get('/signin', function(req, res) {
             res.send('Username not found');
         } else {
             let hash = result[0].password;
-            if (bcrypt.compareSync(password, hash)) {
+            if (checkPassword(password, hash)) {
                 res.send('Success');
             } else {
                 res.send('Incorrect password');
@@ -67,7 +75,6 @@ function generatePasswordHash(password) {
 function checkPassword(password, hash) {
     return bcrypt.compareSync(password, hash);
 }
-
 
 // -------------------database connection--------------------------
 
