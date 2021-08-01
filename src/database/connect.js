@@ -42,9 +42,11 @@ app.post('/signup', function(req, res) {
     });
 });
 
-app.get('/signin', function(req, res) {
+app.get('/login', function(req, res) {
     let username = req.body.username;
     let password = req.body.password;
+
+    console.log(username, password);
 
     // get hash from database
     let select_query = 'SELECT password FROM users WHERE username = "' + username + '"';
@@ -57,6 +59,9 @@ app.get('/signin', function(req, res) {
             res.send('Username not found');
         } else {
             let hash = result[0].password;
+            console.log('hash: ' + hash);
+            console.log('result[0]: '+ result[0].password);
+            console.log('password: '+ password);
             if (checkPassword(password, hash)) {
                 res.send('Success');
             } else {
