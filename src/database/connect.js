@@ -42,7 +42,7 @@ app.post('/signup', function(req, res) {
     });
 });
 
-app.get('/login', function(req, res) {
+app.post('/login', function(req, res) {
     let username = req.body.username;
     let password = req.body.password;
 
@@ -59,9 +59,6 @@ app.get('/login', function(req, res) {
             res.send('Username not found');
         } else {
             let hash = result[0].password;
-            console.log('hash: ' + hash);
-            console.log('result[0]: '+ result[0].password);
-            console.log('password: '+ password);
             if (checkPassword(password, hash)) {
                 res.send('Success');
             } else {
