@@ -1,8 +1,10 @@
 require('dotenv').config();
 const bodyParser = require('body-parser')
 const mysql = require('mysql');
+const sql = require('mssql');
 const express = require('express');
 const bcrypt = require('bcrypt');
+const buffer = require('buffer');
 const cors = require('cors');
 const app = express();
 const password = process.env.PW;
@@ -21,23 +23,30 @@ app.use(express.json());
 app.post('/signup', function(req, res) {
     let username = req.body.username;
     let password = generatePasswordHash(req.body.password);
+    console.log(password);
 
-    // check if username already exists
-    connection.query('SELECT * FROM users WHERE username = ?', [username], function(err, result) {
+    // check if username already exists in mssql
+    let query = "SELECT * FROM Users WHERE username = '" + username + "'";
+    request.query(query, function(err, result) {
         if (err) {
             console.log(err);
             res.status(500).send(err);
-        } else if (result.length > 0) {
-            res.status(400).send('Username already exists');
         } else {
-            connection.query('INSERT INTO users (username, password) VALUES (?, ?)', [username, password], function(err, result) {
-                if (err) {
-                    console.log(err);
-                    res.status(500).send(err);
-                } else {
-                    res.status(200).send('User created');
-                }
-            });
+            if (result.length > 0) {
+                res.status(400).send('Username already exists');
+            } else {
+                // create a new user in mssql
+                let query = "INSERT INTO Users (username, password) VALUES ('" + username + "', " + "CONVERT(varbinary,'"+ password + "'))";
+                console.log(query);
+                request.query(query, function(err, result) {
+                    if (err) {
+                        console.log(err);
+                        res.status(500).send(err);
+                    } else {
+                        res.status(200).send('User created');
+                    }
+                });
+            }
         }
     });
 });
@@ -48,21 +57,25 @@ app.post('/login', function(req, res) {
 
     console.log(username, password);
 
-    // get hash from database
-    let select_query = 'SELECT password FROM users WHERE username = "' + username + '"';
-    connection.query(select_query, function(err, result) {
+    // get hash from mssql
+    let query = "SELECT * FROM Users WHERE username = '" + username + "'";
+    request.query(query, function(err, result) {
         if (err) {
-            console.error('Error selecting from table', err);
-            return;
-        }
-        if (result.length === 0) {
-            res.send('Username not found');
+            console.log(err);
+            res.status(500).send(err);
         } else {
-            let hash = result[0].password;
-            if (checkPassword(password, hash)) {
-                res.send('Success');
+            console.log(result.recordset[0]);
+            if (result.recordset.length > 0) {
+                let hash = result.recordset[0].password;
+                console.log(hash);
+                // check if password matches hash
+                if (checkPassword(password, hash)) {
+                    res.status(200).send('Login successful');
+                } else {
+                    res.status(400).send('Incorrect password');
+                }
             } else {
-                res.send('Incorrect password');
+                res.status(400).send('Username does not exist');
             }
         }
     });
@@ -81,34 +94,43 @@ function checkPassword(password, hash) {
 
 // -------------------database connection--------------------------
 
-let connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: password,
-    database: 'bug_tracker'
-});
+var config = {  
+    server: 'localhost\\MSSQLSERVER',
+    port: 1433,
+    user: 'user',
+    password: 'user',
+    database: 'Bug_Tracker',
+    options: {
+        trustedConnection: true,
+        encrypt: true,
+        enableArithAbort: true,
+        trustServerCertificate: true,
+    
+      },
+};
+
+let connection = new sql.ConnectionPool(config);
+let request = new sql.Request(connection);
 
 connection.connect(function(err) {
     if (err) {
-        console.error('Error connecting to MySQL', err);
+        console.error('Error connecting to database', err);
         return;
     }
-
-    create_table();
-
     console.log('Connection established');
+    create_table();
 });
 
-function create_table() {
-    let create_table_query = 'CREATE TABLE IF NOT EXISTS users (id INT(11) NOT NULL AUTO_INCREMENT, username VARCHAR(255) NOT NULL, password VARCHAR(255) NOT NULL, PRIMARY KEY (id))';
 
-    connection.query(create_table_query, function(err, result) {
+function create_table() {
+    // create a table if it doesn't exist
+    let query = "IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Users]') AND type in (N'U')) BEGIN CREATE TABLE [dbo].Users(id INT IDENTITY(1,1), [username] [varchar](50) NOT NULL,[password] [char](64) NOT NULL) END"
+
+    request.query(query, function(err, result) {
         if (err) {
-            console.error('Error creating table', err);
+            console.log(err);
             return;
         }
-
-        console.log('Table created');
     });
 }
 
